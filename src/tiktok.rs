@@ -7,6 +7,8 @@ impl Profile {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
         let html = crate::common::CLIENT
             .get(&live_page_url)
+            .header(reqwest::header::COOKIE, crate::common::COOKIE)
+            .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
             .await?
             .text()
