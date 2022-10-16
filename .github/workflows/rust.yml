@@ -1,0 +1,45 @@
+name: Rust
+
+on: [ push ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  winbuild:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tiktoklive_saver_windows
+        path: target/release/tiktoklive_saver.exe
+      
+  
+  macbuild:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tiktoklive_saver_osx
+        path: target/release/tiktoklive_saver
+        
+  linuxbuild:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tiktoklive_saver_gnu
+        path: target/release/tiktoklive_saver
