@@ -3,7 +3,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub async fn live_status(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
+    pub async fn room_id(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
         let html = crate::common::CLIENT
             .get(&live_page_url)
@@ -61,5 +61,27 @@ impl Profile {
             return Ok(Some(url.to_owned()));
         }
         Ok(None)
+    }
+
+    pub async fn wait_for_stream_url(&self) -> String {
+        loop {
+            let id = match self.room_id().await {
+                Ok(id) => id,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue;
+                }
+            };
+            if let Some(id) = id {
+                match Self::get_stream_url(id).await {
+                    Ok(url) => {
+                        if let Some(url) = url {
+                            return url;
+                        }
+                    }
+                    Err(e) => eprintln!("{}", e),
+                }
+            }
+        }
     }
 }
