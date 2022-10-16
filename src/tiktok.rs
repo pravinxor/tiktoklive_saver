@@ -3,7 +3,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub async fn live_status(&self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn live_status(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
         let html = crate::common::CLIENT
             .get(&live_page_url)
@@ -29,14 +29,15 @@ impl Profile {
         let room_id = &json["LiveRoom"]["liveRoomUserInfo"]["user"]["roomId"];
 
         if let Some(id) = room_id.as_str() {
-            Ok(Some(id.to_owned()))
+            let id = id.parse()?;
+            Ok(Some(id))
         } else {
             Ok(None)
         }
     }
 
     pub async fn get_stream_url(
-        room_id: &str,
+        room_id: u64,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let json: serde_json::Value = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
