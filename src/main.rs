@@ -31,16 +31,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             s.spawn(async move {
                 loop {
                     let url = profile.wait_for_stream_url().await;
-                    eprintln!("Opening livestream for {}", &profile.username);
+                    let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
                     if let Err(e) = crate::common::download_into(
                         &url,
-                        format!("{}/{}.flv", folder, &profile.username),
+                        format!("{}/{}-{}.flv", folder, &profile.username, time),
                     )
                     .await
                     {
                         eprintln!("{}", e);
                     }
-                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
             });
         }

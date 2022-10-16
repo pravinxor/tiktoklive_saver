@@ -64,6 +64,11 @@ impl Profile {
     }
 
     pub async fn wait_for_stream_url(&self) -> String {
+        let bar = indicatif::ProgressBar::new_spinner();
+        let bar = crate::common::BARS.add(bar);
+        bar.set_message(format!("Waiting for {}'s live to start", self.username));
+        bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
+        bar.enable_steady_tick(std::time::Duration::from_secs(1));
         loop {
             let id = match self.room_id().await {
                 Ok(id) => id,
@@ -76,12 +81,14 @@ impl Profile {
                 match Self::get_stream_url(id).await {
                     Ok(url) => {
                         if let Some(url) = url {
+                            bar.finish_and_clear();
                             return url;
                         }
                     }
                     Err(e) => eprintln!("{}", e),
                 }
             }
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     }
 }

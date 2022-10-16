@@ -28,6 +28,6 @@ where
         file.write_all(&bytes).await?;
         bar.tick();
     }
-    bar.finish();
+    bar.finish_and_clear();
     Ok(())
 }
