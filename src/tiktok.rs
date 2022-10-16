@@ -56,8 +56,7 @@ impl Profile {
                 _ => return Err(message.into()),
             }
         }
-
-        if let Some(url) = json["data"]["stream_url"]["hls_pull_url"].as_str() {
+        if let Some(url) = json["data"]["stream_url"]["rtmp_pull_url"].as_str() {
             return Ok(Some(url.to_owned()));
         }
         Ok(None)
