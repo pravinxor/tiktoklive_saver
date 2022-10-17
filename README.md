@@ -1,4 +1,4 @@
-# tiktoklive_saver
+# TikTok Live Saver
  A utility that saves the raw FLV file of a tiktok live to your computer
  
  It can be run during a live to begin downloading from the point the program was started
