@@ -75,7 +75,7 @@ impl Profile {
             let id = match self.room_id().await {
                 Ok(id) => id,
                 Err(e) => {
-                    eprintln!("{}", e);
+                    eprintln!("thread {} reported: {}", self.username, e);
                     continue;
                 }
             };
@@ -87,7 +87,7 @@ impl Profile {
                             return url;
                         }
                     }
-                    Err(e) => eprintln!("{}", e),
+                    Err(e) => eprintln!("thread {} reported: {}", self.username, e),
                 }
             }
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
