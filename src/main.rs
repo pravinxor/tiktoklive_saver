@@ -18,7 +18,7 @@ struct Args {
     #[arg(short, long)]
     folder: String,
 
-    /// Overrides the cookie used for sending requests to TikTok
+    /// The account cookie used for sending requests to TikTok
     #[arg(short, long, env)]
     tiktok_cookie: String,
 }
