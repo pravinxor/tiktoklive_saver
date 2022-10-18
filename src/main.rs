@@ -11,7 +11,7 @@ use colored::Colorize;
 #[clap(arg_required_else_help(true))]
 struct Args {
     /// User's livestream to be recorded
-    #[arg(short, long)]
+    #[arg(short, long, required = true)]
     user: Vec<String>,
 
     /// Folder where user livestreams will be stored
