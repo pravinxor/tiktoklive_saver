@@ -57,7 +57,7 @@ impl Profile {
         // Report any error messages
         if let Some(message) = json["data"]["message"].as_str() {
             match message {
-                "User doesn't login" => return Err("Missing or invalid cookie".into()),
+                "User doesn't login" => return Err("Invalid or expired cookie".into()),
                 "room has finished" => return Ok(None),
                 _ => return Err(message.into()),
             }

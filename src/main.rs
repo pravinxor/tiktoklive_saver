@@ -17,17 +17,20 @@ struct Args {
     /// Folder where user livestreams will be stored
     #[arg(short, long)]
     folder: String,
+
+    /// Overrides the cookie used for sending requests to TikTok
+    #[arg(short, long, env)]
+    tiktok_cookie: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let folder = &args.folder;
+    let cookie = args.tiktok_cookie;
     let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
         username: u.to_owned(),
     });
-    let cookie =
-        std::env::var("TIKTOK_COOKIE").unwrap_or_else(|_| String::from(crate::common::COOKIE));
 
     tokio_scoped::scope(|s| {
         for profile in profiles {

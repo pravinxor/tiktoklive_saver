@@ -4,7 +4,6 @@ lazy_static::lazy_static! {
 }
 
 pub const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.114 Safari/537.36";
-pub const COOKIE: &str = env!("TIKTOK_COOKIE");
 
 use colored::Colorize;
 use futures::stream::StreamExt;
