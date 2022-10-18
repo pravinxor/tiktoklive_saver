@@ -3,11 +3,11 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub async fn room_id(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
+    pub async fn room_id(&self, cookie: &str) -> Result<Option<u64>, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
         let html = crate::common::CLIENT
             .get(&live_page_url)
-            .header(reqwest::header::COOKIE, crate::common::COOKIE)
+            .header(reqwest::header::COOKIE, cookie)
             .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
             .await?
@@ -40,11 +40,12 @@ impl Profile {
 
     pub async fn get_stream_url(
         room_id: u64,
+        cookie: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let json: serde_json::Value = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
             .form(&[("room_id", room_id)])
-            .header(reqwest::header::COOKIE, crate::common::COOKIE)
+            .header(reqwest::header::COOKIE, cookie)
             .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
             .await?
@@ -65,29 +66,33 @@ impl Profile {
         Ok(None)
     }
 
-    pub async fn wait_for_stream_url(&self) -> String {
+    pub async fn wait_for_stream_url(&self, cookie: &str) -> String {
         let bar = indicatif::ProgressBar::new_spinner();
         let bar = crate::common::BARS.add(bar);
         bar.set_message(format!("Waiting for {}'s live to start", self.username));
         bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
         bar.enable_steady_tick(std::time::Duration::from_secs(1));
         loop {
-            let id = match self.room_id().await {
+            let id = match self.room_id(cookie).await {
                 Ok(id) => id,
                 Err(e) => {
-                    eprintln!("thread {} reported: {}", self.username, e);
+                    crate::common::BARS
+                        .println(format!("thread {} reported: {}", self.username, e))
+                        .unwrap();
                     continue;
                 }
             };
             if let Some(id) = id {
-                match Self::get_stream_url(id).await {
+                match Self::get_stream_url(id, cookie).await {
                     Ok(url) => {
                         if let Some(url) = url {
                             bar.finish_and_clear();
                             return url;
                         }
                     }
-                    Err(e) => eprintln!("thread {} reported: {}", self.username, e),
+                    Err(e) => crate::common::BARS
+                        .println(format!("thread {} reported: {}", self.username, e))
+                        .unwrap(),
                 }
             }
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

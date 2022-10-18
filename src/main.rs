@@ -25,12 +25,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
         username: u.to_owned(),
     });
+    let cookie =
+        std::env::var("TIKTOK_COOKIE").unwrap_or_else(|_| String::from(crate::common::COOKIE));
 
     tokio_scoped::scope(|s| {
         for profile in profiles {
+            let cookie = cookie.as_str();
             s.spawn(async move {
                 loop {
-                    let url = profile.wait_for_stream_url().await;
+                    let url = profile.wait_for_stream_url(cookie).await;
                     let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
                     if let Err(e) = crate::common::download_into(
                         &url,
@@ -38,7 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await
                     {
-                        eprintln!("thread {} reported: {}", &profile.username, e);
+                        crate::common::BARS
+                            .println(format!("thread {} reported: {}", &profile.username, e))
+                            .unwrap();
                     }
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
