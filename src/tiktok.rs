@@ -1,3 +1,5 @@
+use colored::Colorize;
+
 pub struct Profile {
     pub username: String,
 }
@@ -77,7 +79,11 @@ impl Profile {
                 Ok(id) => id,
                 Err(e) => {
                     crate::common::BARS
-                        .println(format!("thread {} reported: {}", self.username, e))
+                        .println(format!(
+                            "thread {} reported: {}",
+                            self.username,
+                            e.to_string().red()
+                        ))
                         .unwrap();
                     continue;
                 }
@@ -91,7 +97,11 @@ impl Profile {
                         }
                     }
                     Err(e) => crate::common::BARS
-                        .println(format!("thread {} reported: {}", self.username, e))
+                        .println(format!(
+                            "thread {} reported: {}",
+                            self.username,
+                            e.to_string().red()
+                        ))
                         .unwrap(),
                 }
             }

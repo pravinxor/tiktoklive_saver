@@ -5,6 +5,7 @@ mod tiktok;
 mod common;
 
 use clap::Parser;
+use colored::Colorize;
 
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
@@ -42,7 +43,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await
                     {
                         crate::common::BARS
-                            .println(format!("thread {} reported: {}", &profile.username, e))
+                            .println(format!(
+                                "thread {} reported: {}",
+                                &profile.username,
+                                e.to_string().red()
+                            ))
                             .unwrap();
                     }
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

@@ -15,4 +15,5 @@ clap = { version = "4", features = ["derive"] }
 tokio-scoped = "0.2.0"
 indicatif = { version = "0.17.1", features = ["improved_unicode", "tokio"] }
 chrono = "0.4.22"
+colored = "2.0.0"
 
