@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await
                     {
-                        eprintln!("{}", e);
+                        eprintln!("thread {} reported: {}", &profile.username, e);
                     }
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
