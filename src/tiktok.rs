@@ -7,13 +7,14 @@ pub struct Profile {
 impl Profile {
     pub async fn room_id(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
-        let html = crate::common::CLIENT
+        let response = crate::common::CLIENT
             .get(&live_page_url)
             .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
-            .await?
-            .text()
             .await?;
+
+        response.error_for_status_ref()?;
+        let html = response.text().await?;
 
         // Trim the HTML to just the embedded JSON
         let mut json_str;
@@ -43,15 +44,16 @@ impl Profile {
         room_id: u64,
         cookie: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let json: serde_json::Value = crate::common::CLIENT
+        let response = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
             .form(&[("room_id", room_id)])
             .header(reqwest::header::COOKIE, cookie)
             .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
-            .await?
-            .json()
             .await?;
+        response.error_for_status_ref()?;
+
+        let json: serde_json::Value = response.json().await?;
 
         // Report any error messages
         if let Some(message) = json["data"]["message"].as_str() {
