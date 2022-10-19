@@ -68,22 +68,19 @@ impl Profile {
     }
 
     pub async fn wait_for_stream_url(&self, cookie: &str) -> String {
-        let bar = indicatif::ProgressBar::new_spinner();
-        let bar = crate::common::BARS.add(bar);
-        bar.set_message(format!("Waiting for {}'s live to start", self.username));
+        let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
         bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
         bar.enable_steady_tick(std::time::Duration::from_secs(1));
+
         loop {
             let id = match self.room_id().await {
                 Ok(id) => id,
                 Err(e) => {
-                    crate::common::BARS
-                        .println(format!(
-                            "thread {} reported: {}",
-                            self.username,
-                            e.to_string().red()
-                        ))
-                        .unwrap();
+                    bar.set_message(format!(
+                        "Waiting for {}'s live to start: {}",
+                        self.username,
+                        e.to_string().red()
+                    ));
                     continue;
                 }
             };
@@ -95,15 +92,14 @@ impl Profile {
                             return url;
                         }
                     }
-                    Err(e) => crate::common::BARS
-                        .println(format!(
-                            "thread {} reported: {}",
-                            self.username,
-                            e.to_string().red()
-                        ))
-                        .unwrap(),
+                    Err(e) => bar.set_message(format!(
+                        "Waiting for {}'s live to start: {}",
+                        self.username,
+                        e.to_string().red()
+                    )),
                 }
             }
+            bar.set_message(format!("Waiting for {}'s live to start", self.username));
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     }
