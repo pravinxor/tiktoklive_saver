@@ -5,11 +5,10 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub async fn room_id(&self, cookie: &str) -> Result<Option<u64>, Box<dyn std::error::Error>> {
+    pub async fn room_id(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
         let html = crate::common::CLIENT
             .get(&live_page_url)
-            .header(reqwest::header::COOKIE, cookie)
             .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
             .await?
@@ -75,7 +74,7 @@ impl Profile {
         bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
         bar.enable_steady_tick(std::time::Duration::from_secs(1));
         loop {
-            let id = match self.room_id(cookie).await {
+            let id = match self.room_id().await {
                 Ok(id) => id,
                 Err(e) => {
                     crate::common::BARS
