@@ -83,7 +83,7 @@ impl Profile {
                         self.username,
                         e.to_string().red()
                     ));
-                    continue;
+                    None
                 }
             };
             if let Some(id) = id {
@@ -100,6 +100,10 @@ impl Profile {
                         e.to_string().red()
                     )),
                 }
+            } else {
+                // On response error, wait a shorter period of time
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                continue;
             }
             bar.set_message(format!("Waiting for {}'s live to start", self.username));
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
