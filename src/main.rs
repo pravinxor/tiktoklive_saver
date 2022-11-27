@@ -20,14 +20,19 @@ struct Args {
 
     /// The account cookie used for sending requests to TikTok
     #[arg(short, long, env)]
-    tiktok_cookie: String,
+    tiktok_cookie: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let folder = &args.folder;
-    let cookie = args.tiktok_cookie;
+    let cookie = match args.tiktok_cookie {
+        Some(cookie) => cookie,
+        None => option_env!("TIKTOK_COOKIE")
+            .ok_or("ERROR: Target was not configured with TIKTOK_COOKIE fallback, exiting")?
+            .to_string(),
+    };
     let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
         username: u.to_owned(),
     });
