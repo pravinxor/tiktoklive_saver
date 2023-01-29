@@ -33,9 +33,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("ERROR: Target was not configured with TIKTOK_COOKIE fallback, exiting")?
             .to_string(),
     };
+    dbg!(folder);
+    dbg!(&cookie[..30]);
     let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
         username: u.to_owned(),
     });
+    dbg!(&profiles);
 
     tokio_scoped::scope(|s| {
         for profile in profiles {

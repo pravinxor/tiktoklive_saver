@@ -17,11 +17,17 @@ impl Profile {
         let html = response.text().await?;
 
         // Trim the HTML to just the embedded JSON
+        if html.find("{\"AppContext").is_none() {
+            dbg!(&html);
+        }
         let mut json_str;
         let json_open = html
             .find("{\"AppContext")
             .ok_or("Unable to find data json opening")?;
         json_str = &html[json_open..];
+        if json_str.find("</script>").is_none() {
+            dbg!(&html);
+        }
         let json_close = json_str
             .find("</script>")
             .ok_or("Unable to find json closing")?;
@@ -70,19 +76,22 @@ impl Profile {
     }
 
     pub async fn wait_for_stream_url(&self, cookie: &str) -> String {
-        let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
-        bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
-        bar.enable_steady_tick(std::time::Duration::from_secs(1));
+        //let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
+        //bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
+        //bar.enable_steady_tick(std::time::Duration::from_secs(1));
 
         loop {
             let id = match self.room_id().await {
                 Ok(id) => id,
                 Err(e) => {
+                    /*
                     bar.set_message(format!(
                         "Waiting for {}'s live to start: {}",
                         self.username,
                         e.to_string().red()
                     ));
+                    */
+                    dbg!(e);
                     None
                 }
             };
@@ -90,22 +99,24 @@ impl Profile {
                 match Self::get_stream_url(id, cookie).await {
                     Ok(url) => {
                         if let Some(url) = url {
-                            bar.finish_and_clear();
+                            //bar.finish_and_clear();
                             return url;
                         }
-                    }
+                    } /*
                     Err(e) => bar.set_message(format!(
-                        "Waiting for {}'s live to start: {}",
-                        self.username,
-                        e.to_string().red()
+                    "Waiting for {}'s live to start: {}",
+                    self.username,
+                    e.to_string().red()
                     )),
+                     */
+                    Err(_) => {}
                 }
             } else {
                 // On response error, wait a shorter period of time
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 continue;
             }
-            bar.set_message(format!("Waiting for {}'s live to start", self.username));
+            //bar.set_message(format!("Waiting for {}'s live to start", self.username));
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     }
