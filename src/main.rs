@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => option_env!("TIKTOK_COOKIE")
             .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
-    let profiles: Vec<crate::tiktok::Profile> = args
+    let mut profiles: Vec<crate::tiktok::Profile> = args
         .user
         .iter()
         .filter_map(|username| {
@@ -39,6 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .ok()
         })
         .collect();
+    crate::tiktok::Profile::update_alive(&mut profiles)?;
     dbg!(profiles);
     Ok(())
 }
