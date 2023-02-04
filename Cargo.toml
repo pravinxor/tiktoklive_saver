@@ -7,13 +7,9 @@ edition = "2021"
 
 [dependencies]
 lazy_static = "1.4.0"
-reqwest = { version = "0.11", features = ["json", "stream"] }
-tokio = { version = "1", features = ["full"] }
-serde_json = "1.0"
-futures = "0.3"
+serde_json = "1"
 clap = { version = "4", features = ["derive", "env"] }
-tokio-scoped = "0.2.0"
-indicatif = { version = "0.17.1", features = ["improved_unicode", "tokio"] }
-chrono = "0.4.22"
-colored = "2.0.0"
+indicatif = { version = "0.17", features = ["improved_unicode"] }
+chrono = "0.4"
+ureq = { version = "2.6.2", features = ["serde_json"] }
 

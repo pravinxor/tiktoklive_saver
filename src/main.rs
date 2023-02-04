@@ -5,7 +5,6 @@ mod tiktok;
 mod common;
 
 use clap::Parser;
-use colored::Colorize;
 
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
@@ -23,45 +22,31 @@ struct Args {
     tiktok_cookie: Option<String>,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let folder = &args.folder;
-    let cookie = match args.tiktok_cookie {
+    let folder = args.folder;
+    let cookie = match args.tiktok_cookie.as_ref() {
         Some(cookie) => cookie,
         None => option_env!("TIKTOK_COOKIE")
-            .ok_or("ERROR: Target was not configured with TIKTOK_COOKIE fallback, exiting")?
-            .to_string(),
+            .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
-    let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
-        username: u.to_owned(),
-    });
-
-    tokio_scoped::scope(|s| {
-        for profile in profiles {
-            let cookie = cookie.as_str();
-            s.spawn(async move {
-                loop {
-                    let url = profile.wait_for_stream_url(cookie).await;
-                    let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
-                    if let Err(e) = crate::common::download_into(
-                        &url,
-                        format!("{}/{}-{}.flv", folder, &profile.username, time),
-                    )
-                    .await
-                    {
-                        crate::common::BARS
-                            .println(format!(
-                                "thread {} reported: {}",
-                                &profile.username,
-                                e.to_string().red()
-                            ))
-                            .unwrap();
-                    }
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                }
-            });
-        }
-    });
+    let profiles: Vec<crate::tiktok::Profile> = args
+        .user
+        .iter()
+        .map(|username| (username, crate::tiktok::Profile::get_room_id(username)))
+        .filter_map(|attr| match attr.1 {
+            Ok(id) => Some((attr.0, id)),
+            Err(e) => {
+                eprintln!("{} reported: {}, not downloading", attr.0, e);
+                None
+            }
+        })
+        .map(|attr| crate::tiktok::Profile {
+            username: attr.0.into(),
+            room_id: attr.1,
+            downloading: false.into(),
+        })
+        .collect();
+    dbg!(profiles[0].room_id);
     Ok(())
 }
