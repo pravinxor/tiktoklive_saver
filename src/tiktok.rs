@@ -6,7 +6,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub fn get_room_id<S>(username: S) -> Result<u64, Box<dyn std::error::Error>>
+    fn get_room_id<S>(username: S) -> Result<u64, Box<dyn std::error::Error>>
     where
         S: AsRef<str> + std::fmt::Display,
     {
@@ -35,5 +35,14 @@ impl Profile {
             .as_str()
             .ok_or("room_id is not a string, user may not exist or cannot go live")?
             .parse()?)
+    }
+
+    pub fn new(username: String) -> Result<Self, Box<dyn std::error::Error>> {
+        let room_id = Self::get_room_id(&username)?;
+        Ok(Self {
+            username,
+            room_id,
+            downloading: false.into(),
+        })
     }
 }
