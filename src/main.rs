@@ -33,20 +33,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let profiles: Vec<crate::tiktok::Profile> = args
         .user
         .iter()
-        .map(|username| (username, crate::tiktok::Profile::get_room_id(username)))
-        .filter_map(|attr| match attr.1 {
-            Ok(id) => Some((attr.0, id)),
-            Err(e) => {
-                eprintln!("{} reported: {}, not downloading", attr.0, e);
-                None
-            }
-        })
+        .filter_map(
+            |username| match crate::tiktok::Profile::get_room_id(username) {
+                Ok(id) => Some((username, id)),
+                Err(e) => {
+                    eprintln!("{} reported: {}, not downloading", username, e);
+                    None
+                }
+            },
+        )
         .map(|attr| crate::tiktok::Profile {
             username: attr.0.into(),
             room_id: attr.1,
             downloading: false.into(),
         })
         .collect();
-    dbg!(profiles[0].room_id);
+    dbg!(profiles);
     Ok(())
 }
