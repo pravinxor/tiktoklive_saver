@@ -34,10 +34,8 @@ impl Profile {
             .parse()?)
     }
 
-    pub fn update_alive<'a>(
-        profiles: impl IntoIterator<Item = &'a mut Self>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut profiles: Vec<&mut Self> = profiles.into_iter().collect();
+    pub fn update_alive<'a>(profiles: &mut [&mut Self]) -> Result<(), Box<dyn std::error::Error>> {
+        //let mut profiles: Vec<&mut Self> = profiles.into_iter().collect();
         let ids = profiles
             .iter()
             //.filter(|p| predicate(p))

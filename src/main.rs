@@ -41,20 +41,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .map(|p| std::sync::Arc::new(std::sync::Mutex::new(p)))
         .collect();
-    std::thread::scope(|s| {
+    std::thread::scope(|s| loop {
         let mut inactive_profiles: Vec<std::sync::MutexGuard<crate::tiktok::Profile>> = profiles
             .iter_mut()
             .flat_map(|m| m.try_lock())
             .filter(|p| !p.alive)
             .collect();
-        let inactive_refs = inactive_profiles.iter_mut().map(|p| p.deref_mut());
-        crate::tiktok::Profile::update_alive(inactive_refs).unwrap();
-        dbg!(inactive_profiles
-            .iter()
-            .find(|p| p.alive)
-            .unwrap()
-            .stream_url(cookie)
-            .unwrap());
+        let mut inactive_refs: Vec<&mut crate::tiktok::Profile> = inactive_profiles
+            .iter_mut()
+            .map(|p| p.deref_mut())
+            .collect();
+        crate::tiktok::Profile::update_alive(inactive_refs.as_mut_slice()).unwrap();
     });
+
     Ok(())
 }
