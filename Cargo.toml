@@ -11,5 +11,5 @@ serde_json = "1"
 clap = { version = "4", features = ["derive", "env"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 chrono = "0.4"
-ureq = { version = "2", features = ["json", "serde_json", "brotli", "native-tls", "native-certs"] }
+ureq = { version = "2", features = ["json", "serde_json"] }
 

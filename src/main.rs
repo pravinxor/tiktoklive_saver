@@ -41,10 +41,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     crate::tiktok::Profile::update_alive(&mut profiles, |p| !p.alive)?;
-    dbg!(profiles
+    let first = profiles
         .iter()
         .find(|p| p.alive)
         .unwrap()
-        .stream_url(cookie))?;
+        .stream_url(cookie)?;
+    dbg!(&first);
+    crate::common::download(format!("{folder}/video"), &first)?;
     Ok(())
 }
