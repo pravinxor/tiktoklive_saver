@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Profile {
     pub username: String,
     pub room_id: u64,
@@ -34,13 +34,13 @@ impl Profile {
             .parse()?)
     }
 
-    pub fn update_alive(
-        profiles: &mut [Profile],
-        predicate: fn(&Profile) -> bool,
+    pub fn update_alive<'a>(
+        profiles: impl IntoIterator<Item = &'a mut Self>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut profiles: Vec<&mut Self> = profiles.into_iter().collect();
         let ids = profiles
             .iter()
-            .filter(|p| predicate(p))
+            //.filter(|p| predicate(p))
             .map(|profile| profile.room_id.to_string())
             .reduce(|f, s| f + "," + &s)
             .unwrap();
@@ -60,7 +60,7 @@ impl Profile {
             .collect();
         profiles
             .iter_mut()
-            .filter(|p| predicate(p))
+            //.filter(|p| predicate(p))
             .filter(|profile| alive_rooms.contains(&profile.room_id))
             .for_each(|profile| profile.alive = true);
         Ok(())
