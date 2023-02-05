@@ -66,6 +66,31 @@ impl Profile {
         Ok(())
     }
 
+    pub fn stream_url(&self, cookie: &str) -> Result<String, Box<dyn std::error::Error>> {
+        if !self.alive {
+            return Err("Stream must be alive to download".into());
+        }
+
+        let response = crate::common::AGENT
+            .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
+            .set("cookie", cookie)
+            .send_form(&[("room_id", self.room_id.to_string().as_str())])?;
+        if response.status() % 100 == 4 {
+            return Err(response.status_text().into());
+        }
+
+        let json: serde_json::Value = response.into_json()?;
+        if let Some(message) = json["data"]["message"].as_str() {
+            return Err(message.into());
+        }
+
+        if let Some(url) = json["data"]["stream_url"]["rtmp_pull_url"].as_str() {
+            Ok(url.to_owned())
+        } else {
+            Err("rtmp_pull URL missing".into())
+        }
+    }
+
     pub fn new(username: String) -> Result<Self, Box<dyn std::error::Error>> {
         let room_id = Self::get_room_id(&username)?;
         Ok(Self {

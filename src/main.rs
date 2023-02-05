@@ -4,7 +4,6 @@ mod tiktok;
 #[path = "common.rs"]
 mod common;
 
-use ::std::sync::Mutex;
 use clap::Parser;
 
 #[derive(Parser)]
@@ -41,9 +40,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect();
 
-    loop {
-        crate::tiktok::Profile::update_alive(&mut profiles, |p| !p.alive)?;
-        break;
-    }
+    crate::tiktok::Profile::update_alive(&mut profiles, |p| !p.alive)?;
+    dbg!(profiles
+        .iter()
+        .find(|p| p.alive)
+        .unwrap()
+        .stream_url(cookie))?;
     Ok(())
 }
