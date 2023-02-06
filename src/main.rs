@@ -14,6 +14,10 @@ struct Args {
     #[arg(short, long)]
     folder: String,
 
+    /// The interval (in seconds) to check if users are live
+    #[arg(short, long, default_value = "10")]
+    interval: u64,
+
     /// The account cookie used for sending requests to TikTok
     #[arg(short, long, env)]
     tiktok_cookie: Option<String>,
@@ -78,5 +82,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        tokio::time::sleep(tokio::time::Duration::from_secs(args.interval)).await;
     }
 }
