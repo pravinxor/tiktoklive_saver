@@ -7,19 +7,23 @@ pub struct Profile {
 }
 
 impl Profile {
-    fn get_room_id(
+    async fn get_room_id(
         username: impl AsRef<str> + std::fmt::Display,
     ) -> Result<u64, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{username}/live");
-        let response = crate::common::AGENT.get(&live_page_url).call()?;
-        let html = response.into_string()?;
+        let response = crate::common::CLIENT
+            .get(&live_page_url)
+            .send()
+            .await?
+            .text()
+            .await?;
 
         // Trim the HTML to just the embedded JSON
         let mut json_str;
-        let json_open = html
+        let json_open = response
             .find("{\"AppContext")
             .ok_or("Unable to find data json opening")?;
-        json_str = &html[json_open..];
+        json_str = &response[json_open..];
         let json_close = json_str
             .find("</script>")
             .ok_or("Unable to find json closing")?;
@@ -34,22 +38,23 @@ impl Profile {
             .parse()?)
     }
 
-    pub fn update_alive<'a>(profiles: &mut [&mut Self]) -> Result<(), Box<dyn std::error::Error>> {
-        //let mut profiles: Vec<&mut Self> = profiles.into_iter().collect();
+    pub async fn update_alive<'a>(
+        profiles: impl IntoIterator<Item = &'a mut Self>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut profiles: Vec<&mut Self> = profiles.into_iter().collect();
         let ids = profiles
             .iter()
             //.filter(|p| predicate(p))
             .map(|profile| profile.room_id.to_string())
             .reduce(|f, s| f + "," + &s)
             .unwrap();
-        let response = crate::common::AGENT
+        let response = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/check_alive/?aid=1988")
-            .send_form(&[("room_ids", &ids)])?;
-        if response.status() % 100 == 4 {
-            return Err(response.status_text().into());
-        }
+            .form(&[("room_ids", &ids)])
+            .send()
+            .await?;
 
-        let json: serde_json::Value = response.into_json()?;
+        let json: serde_json::Value = response.json().await?;
         let data = json["data"].as_array().ok_or("data is not an array")?;
         let alive_rooms: std::collections::HashSet<u64> = data
             .iter()
@@ -64,20 +69,20 @@ impl Profile {
         Ok(())
     }
 
-    pub fn stream_url(&self, cookie: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn stream_url(&self, cookie: &str) -> Result<String, Box<dyn std::error::Error>> {
         if !self.alive {
             return Err("Stream must be alive to download".into());
         }
 
-        let response = crate::common::AGENT
+        let response = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
-            .set("cookie", cookie)
-            .send_form(&[("room_id", self.room_id.to_string().as_str())])?;
-        if response.status() % 100 == 4 {
-            return Err(response.status_text().into());
-        }
+            .header(reqwest::header::COOKIE, cookie)
+            .form(&[("room_id", self.room_id.to_string().as_str())])
+            .send()
+            .await?;
+        response.error_for_status_ref()?;
 
-        let json: serde_json::Value = response.into_json()?;
+        let json: serde_json::Value = response.json().await?;
         if let Some(message) = json["data"]["message"].as_str() {
             return Err(message.into());
         }
@@ -89,10 +94,12 @@ impl Profile {
         }
     }
 
-    pub fn new(username: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let room_id = Self::get_room_id(&username)?;
+    pub async fn new(
+        username: impl Into<String> + AsRef<str> + std::fmt::Display,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let room_id = Self::get_room_id(&username).await?;
         Ok(Self {
-            username,
+            username: username.into(),
             room_id,
             alive: false,
             downloading: false,

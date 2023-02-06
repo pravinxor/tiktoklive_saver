@@ -1,18 +1,15 @@
-#[path = "tiktok.rs"]
+mod common;
 mod tiktok;
 
-#[path = "common.rs"]
-mod common;
-
 use clap::Parser;
-use std::ops::DerefMut;
+use futures::stream::StreamExt;
 
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
 struct Args {
-    /// User's livestream to be recorded
+    /// Users' livestream to be recorded
     #[arg(short, long, required = true)]
-    user: Vec<String>,
+    users: Vec<String>,
 
     /// Folder where user livestreams will be stored
     #[arg(short, long)]
@@ -23,7 +20,8 @@ struct Args {
     tiktok_cookie: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let folder = args.folder.as_str();
     let cookie = match args.tiktok_cookie.as_ref() {
@@ -31,28 +29,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => option_env!("TIKTOK_COOKIE")
             .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
-    let mut profiles: Vec<std::sync::Arc<std::sync::Mutex<crate::tiktok::Profile>>> = args
-        .user
-        .iter()
-        .filter_map(|username| {
-            crate::tiktok::Profile::new(username.into())
+
+    let profiles: Vec<crate::tiktok::Profile> = futures::stream::iter(&args.users)
+        .filter_map(|username| async move {
+            crate::tiktok::Profile::new(username)
+                .await
                 .map_err(|e| eprintln!("{username} reported: {e}, not downloading"))
                 .ok()
         })
-        .map(|p| std::sync::Arc::new(std::sync::Mutex::new(p)))
-        .collect();
-    std::thread::scope(|s| loop {
-        let mut inactive_profiles: Vec<std::sync::MutexGuard<crate::tiktok::Profile>> = profiles
-            .iter_mut()
-            .flat_map(|m| m.try_lock())
-            .filter(|p| !p.alive)
-            .collect();
-        let mut inactive_refs: Vec<&mut crate::tiktok::Profile> = inactive_profiles
-            .iter_mut()
-            .map(|p| p.deref_mut())
-            .collect();
-        crate::tiktok::Profile::update_alive(inactive_refs.as_mut_slice()).unwrap();
-    });
+        .collect()
+        .await;
+    dbg!(
+        profiles
+            .iter()
+            .find(|p| p.alive)
+            .unwrap()
+            .stream_url(cookie)
+            .await?
+    );
 
     Ok(())
 }

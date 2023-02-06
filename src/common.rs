@@ -1,24 +1,21 @@
 lazy_static::lazy_static! {
-    pub static ref AGENT: ureq::Agent = ureq::AgentBuilder::new().user_agent(USER_AGENT).build();
+    pub static ref CLIENT: reqwest::Client = reqwest::ClientBuilder::new().user_agent(USER_AGENT).build().unwrap();
     pub static ref BARS: indicatif::MultiProgress = indicatif::MultiProgress::new();
 }
 
 pub const USER_AGENT: &str = "*/*";
-const BUF_SIZE: usize = 32 * 12500; // 3200kb
 
-pub fn download(
+use futures::stream::StreamExt;
+use tokio::io::AsyncWriteExt;
+
+pub async fn download(
     path: impl AsRef<std::path::Path>,
-    url: &str,
+    url: impl reqwest::IntoUrl,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use std::io::Read;
-    use std::io::Write;
-    let file = std::fs::File::create(path)?;
-    let stream = crate::common::AGENT.get(url).call()?.into_reader();
-    let mut writer = std::io::BufWriter::with_capacity(BUF_SIZE, file);
-    stream
-        .bytes()
-        .flatten()
-        .for_each(|byte| writer.write_all(&[byte]).unwrap());
-    writer.flush()?;
+    let mut file = tokio::fs::File::create(path).await?;
+    let mut stream = crate::common::CLIENT.get(url).send().await?.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        file.write_all(&chunk?).await?;
+    }
     Ok(())
 }
