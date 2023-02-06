@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
 
-    let profiles: Vec<crate::tiktok::Profile> = futures::stream::iter(&args.users)
+    let mut profiles: Vec<_> = futures::stream::iter(&args.users)
         .filter_map(|username| async move {
             crate::tiktok::Profile::new(username)
                 .await
@@ -39,14 +39,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect()
         .await;
-    dbg!(
-        profiles
-            .iter()
-            .find(|p| p.alive)
-            .unwrap()
-            .stream_url(cookie)
-            .await?
-    );
+    let mut active_downloads = std::collections::HashMap::<u64, _>::new();
+    loop {
+        if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
+            crate::common::BARS.println(format!("Failed to update live status': {e}",))?
+        }
 
-    Ok(())
+        for mut profile in profiles.iter_mut().filter(|p| p.alive && !p.downloading) {
+            let url = match profile.stream_url(cookie).await {
+                Ok(url) => url,
+                Err(e) => {
+                    crate::common::BARS.println(format!(
+                        "Failed to get stream URL for {} : {e}",
+                        profile.username
+                    ))?;
+                    continue;
+                }
+            };
+            let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
+
+            let filename = format!("{folder}{}{time}", profile.username);
+            profile.downloading = true;
+            active_downloads.insert(profile.room_id, crate::common::download(filename, url));
+        }
+
+        for mut profile in profiles.iter_mut().filter(|p| !p.alive && p.downloading) {
+            profile.downloading = false;
+            if let Err(e) = active_downloads.remove(&profile.room_id).unwrap().await {
+                crate::common::BARS
+                    .println(format!("{} downloader reported: {e}", profile.username))?;
+            }
+        }
+    }
 }
