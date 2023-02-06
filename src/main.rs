@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             crate::common::BARS.println(format!("Failed to update live status': {e}",))?
         }
 
-        for mut profile in &mut profiles {
+        for profile in &profiles {
             if !profile.alive || active_downloads.contains_key(&profile.room_id) {
                 continue;
             }
@@ -62,11 +62,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
             };
-            dbg!(&url);
             let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
 
             let filename = format!("{folder}{}{time}", profile.username);
-            profile.downloading = true;
             let handle = tokio::spawn(crate::common::download(filename, url));
 
             active_downloads.insert(profile.room_id, handle);

@@ -2,7 +2,6 @@ pub struct Profile {
     pub username: String,
     pub room_id: u64,
     pub alive: bool,
-    pub downloading: bool,
 }
 
 impl Profile {
@@ -98,7 +97,6 @@ impl Profile {
             username: username.into(),
             room_id,
             alive: false,
-            downloading: false,
         })
     }
 }
