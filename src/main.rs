@@ -1,22 +1,22 @@
-#[path = "tiktok.rs"]
+mod common;
 mod tiktok;
 
-#[path = "common.rs"]
-mod common;
-
 use clap::Parser;
-use colored::Colorize;
-
+use futures::stream::StreamExt;
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
 struct Args {
-    /// User's livestream to be recorded
+    /// Users' livestream to be recorded
     #[arg(short, long, required = true)]
-    user: Vec<String>,
+    users: Vec<String>,
 
     /// Folder where user livestreams will be stored
     #[arg(short, long)]
     folder: String,
+
+    /// The interval (in seconds) to check if users are live
+    #[arg(short, long, default_value = "10")]
+    interval: u64,
 
     /// The account cookie used for sending requests to TikTok
     #[arg(short, long, env)]
@@ -26,42 +26,62 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let folder = &args.folder;
-    let cookie = match args.tiktok_cookie {
+    let folder = args.folder.as_str();
+    let cookie = match args.tiktok_cookie.as_ref() {
         Some(cookie) => cookie,
         None => option_env!("TIKTOK_COOKIE")
-            .ok_or("ERROR: Target was not configured with TIKTOK_COOKIE fallback, exiting")?
-            .to_string(),
+            .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
-    let profiles = args.user.iter().map(|u| crate::tiktok::Profile {
-        username: u.to_owned(),
-    });
 
-    tokio_scoped::scope(|s| {
-        for profile in profiles {
-            let cookie = cookie.as_str();
-            s.spawn(async move {
-                loop {
-                    let url = profile.wait_for_stream_url(cookie).await;
-                    let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
-                    if let Err(e) = crate::common::download_into(
-                        &url,
-                        format!("{}/{}-{}.flv", folder, &profile.username, time),
-                    )
-                    .await
-                    {
-                        crate::common::BARS
-                            .println(format!(
-                                "thread {} reported: {}",
-                                &profile.username,
-                                e.to_string().red()
-                            ))
-                            .unwrap();
-                    }
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                }
-            });
+    let mut profiles: Vec<_> = futures::stream::iter(&args.users)
+        .filter_map(|username| async move {
+            crate::tiktok::Profile::new(username)
+                .await
+                .map_err(|e| eprintln!("{username} reported: {e}, not downloading"))
+                .ok()
+        })
+        .collect()
+        .await;
+    let mut active_downloads = std::collections::HashMap::<u64, _>::new();
+    let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
+    bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}")?);
+    loop {
+        bar.set_message("Checking for active streams");
+        bar.tick();
+        if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
+            crate::common::BARS.println(format!("Failed to update live status': {e}",))?
         }
-    });
-    Ok(())
+
+        for profile in &profiles {
+            if !profile.alive || active_downloads.contains_key(&profile.room_id) {
+                continue;
+            }
+            let url = match profile.stream_url(cookie).await {
+                Ok(url) => url,
+                Err(e) => {
+                    crate::common::BARS.println(format!(
+                        "Failed to get stream URL for {} : {e}",
+                        profile.username
+                    ))?;
+                    continue;
+                }
+            };
+            let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
+
+            let filename = format!("{folder}{}{time}", profile.username);
+            let handle = tokio::spawn(crate::common::download(filename, url));
+
+            active_downloads.insert(profile.room_id, handle);
+        }
+
+        for (room_id, handle) in &mut active_downloads {
+            if handle.is_finished() {
+                if let Err(e) = handle.await? {
+                    crate::common::BARS
+                        .println(format!("Download thread for room: {room_id} reported {e}"))?;
+                }
+            }
+        }
+        tokio::time::sleep(tokio::time::Duration::from_secs(args.interval)).await;
+    }
 }

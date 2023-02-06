@@ -1,112 +1,102 @@
-use colored::Colorize;
-
 pub struct Profile {
     pub username: String,
+    pub room_id: u64,
+    pub alive: bool,
 }
 
 impl Profile {
-    pub async fn room_id(&self) -> Result<Option<u64>, Box<dyn std::error::Error>> {
-        let live_page_url = format!("https://www.tiktok.com/@{}/live", self.username);
+    async fn get_room_id(
+        username: impl AsRef<str> + std::fmt::Display,
+    ) -> Result<u64, Box<dyn std::error::Error>> {
+        let live_page_url = format!("https://www.tiktok.com/@{username}/live");
         let response = crate::common::CLIENT
             .get(&live_page_url)
-            .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
             .send()
+            .await?
+            .text()
             .await?;
-
-        response.error_for_status_ref()?;
-        let html = response.text().await?;
 
         // Trim the HTML to just the embedded JSON
         let mut json_str;
-        let json_open = html
+        let json_open = response
             .find("{\"AppContext")
             .ok_or("Unable to find data json opening")?;
-        json_str = &html[json_open..];
+        json_str = &response[json_open..];
         let json_close = json_str
             .find("</script>")
             .ok_or("Unable to find json closing")?;
         json_str = &json_str[..json_close];
 
         let json: serde_json::Value = serde_json::from_str(json_str)?;
-
         // Find the room_id
         let room_id = &json["LiveRoom"]["liveRoomUserInfo"]["user"]["roomId"];
-
-        if let Some(id) = room_id.as_str() {
-            let id = id.parse()?;
-            Ok(Some(id))
-        } else {
-            Ok(None)
-        }
+        Ok(room_id
+            .as_str()
+            .ok_or("room_id is not a string, user may not exist or cannot go live")?
+            .parse()?)
     }
 
-    pub async fn get_stream_url(
-        room_id: u64,
-        cookie: &str,
-    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn update_alive<'a>(profiles: &mut [Self]) -> Result<(), Box<dyn std::error::Error>> {
+        if profiles.is_empty() {
+            return Ok(());
+        }
+        let ids = profiles
+            .iter()
+            .map(|profile| profile.room_id.to_string())
+            .reduce(|f, s| f + "," + &s)
+            .unwrap();
+        let response = crate::common::CLIENT
+            .post("https://webcast.us.tiktok.com/webcast/room/check_alive/?aid=1988")
+            .form(&[("room_ids", &ids)])
+            .send()
+            .await?;
+
+        let json: serde_json::Value = response.json().await?;
+        let data = json["data"].as_array().ok_or("data is not an array")?;
+        let alive_rooms: std::collections::HashSet<u64> = data
+            .iter()
+            .filter(|status| status["alive"].as_bool() == Some(true))
+            .flat_map(|status| status["room_id"].as_u64())
+            .collect();
+        profiles
+            .iter_mut()
+            .for_each(|mut profile| profile.alive = alive_rooms.contains(&profile.room_id));
+        Ok(())
+    }
+
+    pub async fn stream_url(&self, cookie: &str) -> Result<String, Box<dyn std::error::Error>> {
+        if !self.alive {
+            return Err("Stream must be alive to download".into());
+        }
+
         let response = crate::common::CLIENT
             .post("https://webcast.us.tiktok.com/webcast/room/enter/?aid=1988")
-            .form(&[("room_id", room_id)])
             .header(reqwest::header::COOKIE, cookie)
-            .header(reqwest::header::USER_AGENT, crate::common::USER_AGENT)
+            .form(&[("room_id", self.room_id.to_string().as_str())])
             .send()
             .await?;
         response.error_for_status_ref()?;
 
         let json: serde_json::Value = response.json().await?;
-
-        // Report any error messages
         if let Some(message) = json["data"]["message"].as_str() {
-            match message {
-                "User doesn't login" => return Err("Invalid or expired cookie".into()),
-                "room has finished" => return Ok(None),
-                _ => return Err(message.into()),
-            }
+            return Err(message.into());
         }
+
         if let Some(url) = json["data"]["stream_url"]["rtmp_pull_url"].as_str() {
-            return Ok(Some(url.to_owned()));
+            Ok(url.to_owned())
+        } else {
+            Err("rtmp_pull URL missing".into())
         }
-        Ok(None)
     }
 
-    pub async fn wait_for_stream_url(&self, cookie: &str) -> String {
-        let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
-        bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}").unwrap());
-        bar.enable_steady_tick(std::time::Duration::from_secs(1));
-
-        loop {
-            let id = match self.room_id().await {
-                Ok(id) => id,
-                Err(e) => {
-                    bar.set_message(format!(
-                        "Waiting for {}'s live to start: {}",
-                        self.username,
-                        e.to_string().red()
-                    ));
-                    None
-                }
-            };
-            if let Some(id) = id {
-                match Self::get_stream_url(id, cookie).await {
-                    Ok(url) => {
-                        if let Some(url) = url {
-                            bar.finish_and_clear();
-                            return url;
-                        }
-                    }
-                    Err(e) => bar.set_message(format!(
-                        "Waiting for {}'s live to start: {}",
-                        self.username,
-                        e.to_string().red()
-                    )),
-                }
-            } else {
-                // On response error, wait a shorter period of time
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                continue;
-            }
-            bar.set_message(format!("Waiting for {}'s live to start", self.username));
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        }
+    pub async fn new(
+        username: impl Into<String> + AsRef<str> + std::fmt::Display,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let room_id = Self::get_room_id(&username).await?;
+        Ok(Self {
+            username: username.into(),
+            room_id,
+            alive: false,
+        })
     }
 }
