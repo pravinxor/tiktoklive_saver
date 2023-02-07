@@ -76,14 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             active_downloads.insert(profile.room_id, handle);
         }
 
-        for (room_id, handle) in &mut active_downloads {
-            if handle.is_finished() {
-                if let Err(e) = handle.await? {
-                    crate::common::BARS
-                        .println(format!("Download thread for room: {room_id} reported {e}"))?;
-                }
-            }
-        }
+        // When drain filter is stabilized for hashmap, replace this. Right now, errors are ignored (not propogated)
+        active_downloads.retain(|_, h| !h.is_finished());
         tokio::time::sleep(tokio::time::Duration::from_secs(args.interval)).await;
     }
 }
