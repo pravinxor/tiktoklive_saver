@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let time = chrono::offset::Local::now().format("%Y-%m-%d-%H-%M");
 
-            let filename = format!("{folder}{}{time}", profile.username);
+            let filename = format!("{folder}{}-{time}.flv", profile.username);
             let handle = tokio::spawn(crate::common::download(filename, url));
 
             active_downloads.insert(profile.room_id, handle);
