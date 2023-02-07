@@ -3,6 +3,8 @@ mod tiktok;
 
 use clap::Parser;
 use futures::stream::StreamExt;
+use indicatif::ProgressIterator;
+
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
 struct Args {
@@ -33,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
 
-    let mut profiles: Vec<_> = futures::stream::iter(&args.users)
+    let mut profiles: Vec<_> = futures::stream::iter(args.users.iter().progress())
         .filter_map(|username| async move {
             crate::tiktok::Profile::new(username)
                 .await
