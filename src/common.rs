@@ -24,6 +24,6 @@ pub async fn download(
         file.write_all(&chunk?).await?;
         bar.tick();
     }
-    bar.finish_with_message("Completed {path}");
+    bar.finish_with_message(format!("Completed {path}"));
     Ok(())
 }
