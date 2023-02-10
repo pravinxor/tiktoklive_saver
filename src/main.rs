@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         bar.tick();
         if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
-            crate::common::BARS.println(format!("Failed to update live status': {e}",))?
+            bar.println(format!("Failed to update live status': {e}",))
         }
 
         for profile in &profiles {
@@ -64,10 +64,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let url = match profile.stream_url(cookie).await {
                 Ok(url) => url,
                 Err(e) => {
-                    crate::common::BARS.println(format!(
+                    bar.println(format!(
                         "Failed to get stream URL for {} : {e}",
                         profile.username
-                    ))?;
+                    ));
                     continue;
                 }
             };
@@ -81,8 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let removed = active_downloads.drain_filter(|_, h| h.is_finished());
         for (_stream_id, handle) in removed {
-            if let Err(e) = handle.await {
-                crate::common::BARS.println(format!("Download failed: {e}",))?;
+            if let Err(e) = handle.await? {
+                bar.println(format!("Download failed: {e}",));
             }
         }
 

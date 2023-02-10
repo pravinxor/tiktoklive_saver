@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Profile {
     pub username: String,
     pub room_id: u64,
