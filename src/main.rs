@@ -1,3 +1,5 @@
+#![feature(hash_drain_filter)]
+
 mod common;
 mod tiktok;
 
@@ -77,8 +79,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             active_downloads.insert(profile.room_id, handle);
         }
 
-        // When drain filter is stabilized for hashmap, replace this. Right now, errors are ignored (not propogated)
-        active_downloads.retain(|_, h| !h.is_finished());
+        let removed = active_downloads.drain_filter(|_, h| h.is_finished());
+        for (_stream_id, handle) in removed {
+            if let Err(e) = handle.await {
+                crate::common::BARS.println(format!("Download failed: {e}",))?;
+            }
+        }
+
         tokio::time::sleep(tokio::time::Duration::from_secs(args.interval)).await;
     }
 }
