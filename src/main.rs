@@ -47,8 +47,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut active_downloads = std::collections::HashMap::<u64, _>::new();
     let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
     bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}")?);
+    bar.set_message("Checking for active streams");
+
     loop {
-        bar.set_message("Checking for active streams");
         bar.tick();
         if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
             crate::common::BARS.println(format!("Failed to update live status': {e}",))?
