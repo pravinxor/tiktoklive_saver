@@ -4,6 +4,7 @@ mod common;
 mod tiktok;
 
 use clap::Parser;
+use colored::Colorize;
 use futures::stream::StreamExt;
 
 #[derive(Parser)]
@@ -60,8 +61,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match crate::tiktok::Profile::get_room_id(&profile.username).await {
                     Err(e) => crate::common::BARS
                         .println(format!(
-                            "When updating room id for {}, encountered error: {e}",
-                            profile.username
+                            "When updating room id for {}, encountered error: {}",
+                            profile.username.italic(),
+                            e.to_string().red()
                         ))
                         .unwrap(),
                     Ok(room_id) => profile.room_id = room_id,
@@ -74,7 +76,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         bar.tick();
         if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
-            bar.println(format!("Failed to update live status': {e}",))
+            bar.println(format!(
+                "Failed to update live status': {}",
+                e.to_string().red()
+            ))
         }
 
         for profile in &profiles {
@@ -85,8 +90,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(url) => url,
                 Err(e) => {
                     bar.println(format!(
-                        "Failed to get stream URL for {} : {e}",
-                        profile.username
+                        "Failed to get stream URL for {} : {}",
+                        profile.username.italic(),
+                        e.to_string().red()
                     ));
                     continue;
                 }
@@ -102,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let removed = active_downloads.drain_filter(|_, h| h.is_finished());
         for (_stream_id, handle) in removed {
             if let Err(e) = handle.await? {
-                bar.println(format!("Download failed: {e}",));
+                bar.println(format!("Download failed: {}", e.to_string().red()));
             }
         }
 

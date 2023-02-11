@@ -5,6 +5,7 @@ lazy_static::lazy_static! {
 
 pub const USER_AGENT: &str = "*/*";
 
+use colored::Colorize;
 use futures::stream::StreamExt;
 use tokio::io::AsyncWriteExt;
 
@@ -13,7 +14,7 @@ pub async fn download(
     url: impl reqwest::IntoUrl,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let bar = BARS.add(indicatif::ProgressBar::new_spinner());
-    bar.set_message(format!("Downloading to {}", &path));
+    bar.set_message(format!("Downloading to {}", path.to_string().green()));
     let mut stream = crate::common::CLIENT.get(url).send().await?.bytes_stream();
     bar.set_style(indicatif::ProgressStyle::with_template(
         "{msg} [{elapsed}] {spinner}",
