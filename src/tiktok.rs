@@ -6,7 +6,7 @@ pub struct Profile {
 }
 
 impl Profile {
-    async fn get_room_id(
+    pub async fn get_room_id(
         username: impl AsRef<str> + std::fmt::Display,
     ) -> Result<u64, Box<dyn std::error::Error>> {
         let live_page_url = format!("https://www.tiktok.com/@{username}/live");
@@ -37,7 +37,7 @@ impl Profile {
             .parse()?)
     }
 
-    pub async fn update_alive<'a>(profiles: &mut [Self]) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn update_alive(profiles: &mut [Self]) -> Result<(), Box<dyn std::error::Error>> {
         if profiles.is_empty() {
             return Ok(());
         }
@@ -90,14 +90,11 @@ impl Profile {
         }
     }
 
-    pub async fn new(
-        username: impl Into<String> + AsRef<str> + std::fmt::Display,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let room_id = Self::get_room_id(&username).await?;
-        Ok(Self {
+    pub fn new(username: impl Into<String> + AsRef<str> + std::fmt::Display) -> Self {
+        Self {
             username: username.into(),
-            room_id,
+            room_id: 0,
             alive: false,
-        })
+        }
     }
 }

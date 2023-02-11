@@ -5,7 +5,6 @@ mod tiktok;
 
 use clap::Parser;
 use futures::stream::StreamExt;
-use indicatif::ProgressIterator;
 
 #[derive(Parser)]
 #[clap(arg_required_else_help(true))]
@@ -22,6 +21,11 @@ struct Args {
     #[arg(short, long, default_value = "10")]
     interval: u64,
 
+    /// The amount of cycles the program must go through for the room ids of all users to be updated.
+    /// The frequency in which this updated is room_id_interval * interval seconds
+    #[arg(short, long, default_value = "3")]
+    room_id_interval: u8,
+
     /// The account cookie used for sending requests to TikTok
     #[arg(short, long, env)]
     tiktok_cookie: Option<String>,
@@ -37,21 +41,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("Error: Target was not configured with TIKTOK_COOKIE fallback")?,
     };
 
-    let mut profiles: Vec<_> = futures::stream::iter(args.users.iter().progress())
-        .filter_map(|username| async move {
-            crate::tiktok::Profile::new(username)
-                .await
-                .map_err(|e| eprintln!("{username} reported: {e}, not downloading"))
-                .ok()
-        })
-        .collect()
-        .await;
-    let mut active_downloads = std::collections::HashMap::<u64, _>::new();
+    let mut profiles: Vec<_> = args.users.iter().map(crate::tiktok::Profile::new).collect();
+
     let bar = crate::common::BARS.add(indicatif::ProgressBar::new_spinner());
     bar.set_style(indicatif::ProgressStyle::with_template("{msg} {spinner}")?);
     bar.set_message("Checking for active streams");
 
+    let mut current_cycle = 0;
+    let mut active_downloads = std::collections::HashMap::<u64, _>::with_capacity(profiles.len());
     loop {
+        if current_cycle == 0 {
+            futures::stream::iter(
+                profiles
+                    .iter_mut()
+                    .filter(|p| !active_downloads.contains_key(&p.room_id)),
+            )
+            .for_each_concurrent(None, |profile| async move {
+                match crate::tiktok::Profile::get_room_id(&profile.username).await {
+                    Err(e) => crate::common::BARS
+                        .println(format!(
+                            "When updating room id for {}, encountered error: {e}",
+                            profile.username
+                        ))
+                        .unwrap(),
+                    Ok(room_id) => profile.room_id = room_id,
+                }
+            })
+            .await;
+            current_cycle += 1;
+            current_cycle %= args.room_id_interval;
+        }
+
         bar.tick();
         if let Err(e) = crate::tiktok::Profile::update_alive(&mut profiles).await {
             bar.println(format!("Failed to update live status': {e}",))
