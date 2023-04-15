@@ -26,11 +26,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --release
+      run: cargo build --release && mv target/release/tiktoklive_saver target/release/tiktoklive_saver_osx
     - uses: actions/upload-artifact@v3
       with:
         name: tiktoklive_saver_osx
-        path: target/release/tiktoklive_saver
+        path: target/release/tiktoklive_saver_osx
         
   linuxbuild:
     runs-on: ubuntu-latest
@@ -38,8 +38,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --release
+      run: cargo build --release && mv target/release/tiktoklive_saver target/release/tiktoklive_saver_gnu
     - uses: actions/upload-artifact@v3
       with:
         name: tiktoklive_saver_gnu
-        path: target/release/tiktoklive_saver
+        path: target/release/tiktoklive_saver_gnu
